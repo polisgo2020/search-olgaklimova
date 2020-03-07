@@ -1,0 +1,5 @@
+I  { 1, 2, 3 }  
+love  { 1 }  
+like  { 2, 3 }  
+bananas  { 2, 3 }  
+you  { 2, 3 }  
