@@ -9,116 +9,113 @@ import (
 )
 
 func main() {
-
+	//Нахождение папки с файлами
 	files, err := ioutil.ReadDir(".")
 
 	if err != nil {
+		fmt.Print("\nПапка с файлами не найдена\n")
 		log.Fatal(err)
 	}
 
-	var h int
-	var newh int
-	var i int
-	var y int
-	var t int
-	var prov int
-	var numfile int
+	var records, newrecords, tworeplay, threereplay, check, numfile, wordlatters, tr int
 	index := make(map[int]string)
 	twoelem := make([]int, 20)
 	threlem := make([]int, 20)
 	twthrelem := make([]int, 20)
 
+	//При нахождении папки, открываем ее и находим файлы
 	for _, file := range files {
 		if file.IsDir() == true {
 			files2, err := ioutil.ReadDir("./" + file.Name())
+			tr++
 			if err != nil {
 				log.Fatal(err)
-				fmt.Print("\nНевозможно открыть папку с файлами")
 			}
+			fmt.Print("\nВ папке были найдены файлы:\n")
 			for _, file2 := range files2 {
-				var b string = file.Name()
-				var a string = file2.Name()
-				fmt.Print("\n")
-				fmt.Print("Файл ")
-				fmt.Print(b)
+				var namefolder string = file.Name()
+				var namefile string = file2.Name()
+
+				fmt.Print(namefolder)
 				fmt.Print("/")
-				fmt.Print(a)
-				fmt.Print(": ")
-				openfile, er := os.Open(b + "/" + a)
+				fmt.Print(namefile)
+				fmt.Print(";\n")
+				//Открываем найденные файлы
+				openfile, er := os.Open(namefolder + "/" + namefile)
 				if er != nil {
 					log.Fatal(er)
-					fmt.Print("Не получается открыть файл")
-					continue
 				}
+				//Закрываем файлы
 				defer openfile.Close()
 
 				var elemcount int
 				var allword string
-				data := make([]byte, 64)
-				word := make([]byte, 64)
+				filetext := make([]byte, 100)
+				word := make([]byte, 100)
 
 				for {
-					_, err := openfile.Read(data)
+					_, err := openfile.Read(filetext) //Считываем всю информацию из файла
 					if err == io.EOF {
 						break
 					}
 
-					for data[elemcount] != 0 {
-						for count := 0; data[elemcount] != ' ' && data[elemcount] != 0; elemcount++ {
-							word[count] = data[elemcount]
+					//Записываем каждое слово через ' '
+					for filetext[elemcount] != 0 {
+						for count := 0; filetext[elemcount] != ' ' && filetext[elemcount] != 0; elemcount++ {
+							word[count] = filetext[elemcount]
 							count++
-							i++
+							wordlatters++
 						}
 						elemcount++
 
-						for j := 0; j < i; j++ {
+						for j := 0; j < wordlatters; j++ {
 							allword = (allword + string(word[j]))
 							word[j] = 0
 						}
-
-						i = 0
+						wordlatters = 0
+						//numfile обозначает нумерацию файла(за основу взято наличие трех)
 						if numfile == 0 {
-
-							for k := 0; k < h; k++ {
+							//Составляем список слов
+							for k := 0; k < records; k++ {
 								if allword != index[k] {
-									prov = 1
+									check = 1 //проверка на повторения
 								}
 							}
-							if prov == 1 {
+							if check == 1 {
 
-								index[h] = allword
-								prov = 0
-								h++
+								index[records] = allword
+								check = 0
+								records++
 							}
-							if h == 0 {
-								index[h] = allword
-								h++
+							if records == 0 {
+								index[records] = allword
+								records++
 							}
 
 						}
 
 						if numfile > 0 {
-							for k := 0; k < h; k++ {
-								newh++
+							for k := 0; k < records; k++ {
+								newrecords++
 								if allword != index[k] {
-									prov = 1
+									check = 1
 								} else {
 									if numfile == 1 {
-										twoelem[y] = k
-										y++
-										prov = 0
+										twoelem[tworeplay] = k //Запоминаем места слов, которые есть и в 1-м и в 2-м файле
+										tworeplay++
+										check = 0
 										break
 									}
 									if numfile == 2 {
-										if k < h-newh {
-											threlem[t] = k
-											t++
-											prov = 0
+										if k < records-newrecords && records != 0 {
+											threlem[threereplay] = k //Запоминаем места слов, которые есть и в 1-м и в 3-м файле
+											threereplay++
+											check = 0
 											break
 										} else {
-											twthrelem[t] = k
-											t++
-											prov = 0
+											twthrelem[threereplay] = k //Запоминаем места слов, которые есть и в 2-м и в 3-м файле
+											threereplay++
+											check = 0
 											break
 										}
 
@@ -127,28 +124,26 @@ func main() {
 								}
 
 							}
-							if prov == 1 {
-								index[h] = allword
-								prov = 0
-								h++
+							if check == 1 {
+								index[records] = allword
+								check = 0
+								records++
 							}
-							newh = 0
+							newrecords = 0
 
 						}
 						allword = ""
-						// fmt.Print(index[h])
-						// fmt.Println("\n")
 					}
 					numfile++
-
-					// fmt.Print(string(data[:n]))
-					// fmt.Print("\n")
 				}
 			}
 
+		} else if tr != 1 {
+			fmt.Print("\nНевозможно открыть папку с файлами\n")
 		}
 	}
 
+	//Создаем файл для записи инвертированного индекса
 	newfile, err := os.Create("invertindex.txt")
 	if err != nil {
 		fmt.Println("Unable to create file:", err)
@@ -157,58 +152,56 @@ func main() {
 
 	defer newfile.Close()
 
-	prov = 0
+	check = 0
 
-	for i := 0; i < h; i++ {
+	for i := 0; i < records; i++ {
 
-		for k := 0; k < y; k++ {
+		for k := 0; k < tworeplay; k++ {
 			if twoelem[k] == i {
-				for c := 0; c < t; c++ {
+				for c := 0; c < threereplay; c++ {
 					if threlem[c] == i {
 						newfile.WriteString(index[i])
-						newfile.WriteString("  { 1, 2, 3 }  \n")
-						prov = 1
+						newfile.WriteString("  { 1, 2, 3 }  \n") //Одно и тоже слово встречается в 1-м, 2-м И в 1-м,3-м
+						check = 1
 						break
 					}
 				}
 
-				if prov == 0 {
+				if check == 0 {
 					newfile.WriteString(index[i])
-					newfile.WriteString("  { 1, 2 }  \n")
-					prov = 1
+					newfile.WriteString("  { 1, 2 }  \n") //Одно и тоже слово встречается в 1-м, 2-м
+					check = 1
 				}
 			}
 		}
 
-		if prov == 0 {
-			for k := 0; k < t; k++ {
+		if check == 0 {
+			for k := 0; k < threereplay; k++ {
 				if threlem[k] == i {
 					newfile.WriteString(index[i])
-					newfile.WriteString("  { 1, 3 }  \n")
-					prov = 1
+					newfile.WriteString("  { 1, 3 }  \n") //Одно и тоже слово встречается в 1-м, 3-м
+					check = 1
 					break
 				}
 			}
 		}
 
-		if prov == 0 {
-			for k := 0; k < t; k++ {
+		if check == 0 {
+			for k := 0; k < threereplay; k++ {
 				if twthrelem[k] == i {
 					newfile.WriteString(index[i])
-					newfile.WriteString("  { 2, 3 }  \n")
-					prov = 1
+					newfile.WriteString("  { 2, 3 }  \n") //Одно и тоже слово встречается во 2-м, 3-м
+					check = 1
 					break
 				}
 			}
 		}
 
-		if prov == 0 {
+		if check == 0 {
 			newfile.WriteString(index[i])
-			newfile.WriteString("  { 1 }  \n")
+			newfile.WriteString("  { 1 }  \n") //Слово встречается один раз
 		}
-
-		prov = 0
-
+		check = 0
 	}
-
+	fmt.Print("\nИнвертированный индекс записан в созданный файл\n")
 }
