@@ -4,7 +4,7 @@ package main
 
 import (
 	"fmt"
-	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 var index = make(map[int]string)
@@ -21,27 +22,28 @@ var mu = &sync.Mutex{}
 var records int
 var newrecords int
 
-func openfile(fname chan string, nfile int) {
-	var alltext chan []byte = make(chan []byte)
-	filetext := make([]byte, 100000000)
+func openfile(chanFilename chan string, nfile int) {
+	alltext := make(chan string)
+
 LOOP:
 	for {
 		select {
-		case str := <-fname:
-			openfile, err := os.Open(str)
+		case filename := <-chanFilename:
+			openfile, err := os.Open(filename)
 			if err != nil {
 				log.Fatal(err)
 			}
 			defer openfile.Close()
-		LOOP1:
-			for {
-				_, err := openfile.Read(filetext) //Считываем всю информацию из файла
-				if err == io.EOF {
-					break LOOP1
-				}
+
+			byteFile, err := ioutil.ReadFile(filename)
+			if err != nil {
+				log.Fatal(err)
 			}
+
+			stringFile := string(byteFile)
+
 			go textAnalysis(alltext, nfile)
-			alltext <- filetext
+			alltext <- stringFile
 		default:
 			break LOOP
 		}
@@ -50,37 +52,20 @@ LOOP:
 	}
 }
 
-func textAnalysis(alltext chan []byte, n int) {
-	var elemcount, wordlatters int
-	var allword string
-	word := make([]byte, 30)
+func textAnalysis(alltext chan string, nfile int) {
 LOOP2:
 	for {
 		select {
-		case text := <-alltext:
-			for text[elemcount] != 0 {
-				for count := 0; text[elemcount] != ' ' && text[elemcount] != 0 && text[elemcount] != '"' && text[elemcount] != '\n' && text[elemcount] != ':' && text[elemcount] != '.' && text[elemcount] != 39 && text[elemcount] != 45 && text[elemcount] != 150 && text[elemcount] != 151; elemcount++ {
-					if (text[elemcount] < 65) || text[elemcount] > 122 || (text[elemcount] < 97 && text[elemcount] > 90) {
-					} else {
-						if text[elemcount] > 64 && text[elemcount] < 91 {
-							text[elemcount] = text[elemcount] + 32
-						}
-						word[count] = text[elemcount]
-						count++
-						wordlatters++
-					}
-				}
-				elemcount++
+		case filetext := <-alltext:
+			lowFiletext := strings.ToLower(filetext) //приведение к нижнему регистру
 
-				for j := 0; j < wordlatters; j++ {
-					allword = (allword + string(word[j]))
-					word[j] = 0
-				}
-				go createIndex(n, allword)
-				wordlatters = 0
-				allword = ""
+			f := func(c rune) bool {
+				return !unicode.IsLetter(c)
 			}
-			elemcount = 0
+			allwords := strings.FieldsFunc(lowFiletext, f)
+			for k := 0; k < len(allwords); k++ {
+				createIndex(nfile, allwords[k])
+			}
 		default:
 			break LOOP2
 		}
@@ -88,7 +73,7 @@ LOOP2:
 	}
 }
 
-func createIndex(n int, allword string) {
+func createIndex(nfile int, allword string) {
 	mu.Lock()
 	var check int
 	var indfi string
@@ -96,7 +81,7 @@ func createIndex(n int, allword string) {
 		if allword == index[k] {
 			if k < records {
 				indfi = indexfile[k]
-				nf := strconv.Itoa(n)
+				nf := strconv.Itoa(nfile)
 				if strings.Contains(indexfile[k], nf) != true {
 					indexfile[k] = (indfi + nf + " ")
 				}
@@ -106,9 +91,8 @@ func createIndex(n int, allword string) {
 	}
 	if check == 0 {
 		index[records] = allword
-		nf := strconv.Itoa(n)
+		nf := strconv.Itoa(nfile)
 		indexfile[records] = (" " + nf + " ")
-		check = 0
 		records++
 	}
 	check = 0
@@ -118,9 +102,6 @@ func createIndex(n int, allword string) {
 func main() {
 	//Нахождение папки с файлами
 	papka := os.Args[1]
-	// var papka string
-	// papka = ("C:\\Users\\asus\\source\\repos\\hello\\files")
-
 	fmt.Println("\nВ папке были найдены файлы:")
 	var nfile int
 	dir, err := os.Open(papka)
@@ -134,20 +115,20 @@ func main() {
 		return
 	}
 
-	var fname chan string = make(chan string)
+	chanFilename := make(chan string)
 	for _, fi := range fileInfos {
 		fmt.Println(fi.Name())
 		nfile++
-		var str string = (papka + "/" + fi.Name())
-		go openfile(fname, nfile)
-		fname <- str
+		var filename string = (papka + "/" + fi.Name())
+		go openfile(chanFilename, nfile)
+		chanFilename <- filename
 	}
-	close(fname)
+	close(chanFilename)
 
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(time.Millisecond * 100500)
 
 	//Создание файла и запись полученного индекса
-	newfile, err := os.Create("invertindex.txt")
+	newfile, err := os.Create(os.Args[2])
 	if err != nil {
 		fmt.Println("Unable to create file:", err)
 		os.Exit(1)
