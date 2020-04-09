@@ -7,103 +7,45 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 	"sync"
-	"time"
-	"unicode"
+
+	"github.com/polisgo2020/search-olgaklimova/index"
 )
 
-var index = make(map[int]string)
-var indexfile = make(map[int]string)
-var numberfile = make(map[int]int)
-var mu = &sync.Mutex{}
-var records int
-var newrecords int
-
-func openfile(chanFilename chan string, nfile int) {
+func openfile(filename string, nfile int, wg *sync.WaitGroup) {
+	defer wg.Done()
 	alltext := make(chan string)
 
-LOOP:
-	for {
-		select {
-		case filename := <-chanFilename:
-			openfile, err := os.Open(filename)
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer openfile.Close()
-
-			byteFile, err := ioutil.ReadFile(filename)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			stringFile := string(byteFile)
-
-			go textAnalysis(alltext, nfile)
-			alltext <- stringFile
-		default:
-			break LOOP
-		}
-		close(alltext)
-		break LOOP
+	openfile, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
 	}
-}
+	defer openfile.Close()
 
-func textAnalysis(alltext chan string, nfile int) {
-LOOP2:
-	for {
-		select {
-		case filetext := <-alltext:
-			lowFiletext := strings.ToLower(filetext) //приведение к нижнему регистру
+	byteFile, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-			f := func(c rune) bool {
-				return !unicode.IsLetter(c)
-			}
-			allwords := strings.FieldsFunc(lowFiletext, f)
-			for k := 0; k < len(allwords); k++ {
-				createIndex(nfile, allwords[k])
-			}
-		default:
-			break LOOP2
-		}
-		break LOOP2
-	}
-}
+	stringFile := string(byteFile)
 
-func createIndex(nfile int, allword string) {
-	mu.Lock()
-	var check int
-	var indfi string
-	for k := 0; k <= records; k++ {
-		if allword == index[k] {
-			if k < records {
-				indfi = indexfile[k]
-				nf := strconv.Itoa(nfile)
-				if strings.Contains(indexfile[k], nf) != true {
-					indexfile[k] = (indfi + nf + " ")
-				}
-			}
-			check = 1
-		}
-	}
-	if check == 0 {
-		index[records] = allword
-		nf := strconv.Itoa(nfile)
-		indexfile[records] = (" " + nf + " ")
-		records++
-	}
-	check = 0
-	mu.Unlock()
+	wg.Add(1)
+	go index.TextAnalysis(alltext, nfile, wg)
+	alltext <- stringFile
 }
 
 func main() {
 	//Нахождение папки с файлами
 	papka := os.Args[1]
+	wg := &sync.WaitGroup{}
+
+	if len(os.Args) > 2 {
+		papka = os.Args[1]
+	} else {
+		fmt.Println("Ошибка ввода папки с файлами или файла для записи")
+		os.Exit(1)
+	}
 	fmt.Println("\nВ папке были найдены файлы:")
-	var nfile int
 	dir, err := os.Open(papka)
 	if err != nil {
 		return
@@ -115,31 +57,16 @@ func main() {
 		return
 	}
 
-	chanFilename := make(chan string)
-	for _, fi := range fileInfos {
+	for i, fi := range fileInfos {
 		fmt.Println(fi.Name())
-		nfile++
+		i++
 		var filename string = (papka + "/" + fi.Name())
-		go openfile(chanFilename, nfile)
-		chanFilename <- filename
-	}
-	close(chanFilename)
-
-	time.Sleep(time.Millisecond * 100500)
-
-	//Создание файла и запись полученного индекса
-	newfile, err := os.Create(os.Args[2])
-	if err != nil {
-		fmt.Println("Unable to create file:", err)
-		os.Exit(1)
+		wg.Add(1)
+		go openfile(filename, i, wg)
 	}
 
-	for k := 0; k < records; k++ {
-		mu.Lock()
-		newfile.WriteString(filepath.Join(index[k] + " {" + indexfile[k] + "}\n"))
-		mu.Unlock()
-	}
-	defer newfile.Close()
-	fmt.Println("\nФайл с инвертированным индексом записан")
-	indexSearch()
+	wg.Wait()
+
+	index.WriteIndex()
+	//index.IndexSearch()
 }
