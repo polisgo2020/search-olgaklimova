@@ -1,7 +1,6 @@
 package index
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,7 +32,7 @@ LOOP2:
 			}
 			allwords := strings.FieldsFunc(lowFiletext, f)
 			for k := 0; k < len(allwords); k++ {
-				createIndex(nfile, allwords[k])
+				СreateIndex(nfile, allwords[k])
 				runtime.Gosched()
 			}
 		default:
@@ -44,7 +43,7 @@ LOOP2:
 	return wg
 }
 
-func createIndex(nfile int, allword string) {
+func СreateIndex(nfile int, allword string) string {
 	mu.Lock()
 	var check int
 	var indfi string
@@ -68,11 +67,15 @@ func createIndex(nfile int, allword string) {
 	}
 	check = 0
 	mu.Unlock()
+	rec := records - 1
+	return (index[rec])
 }
 
-func WriteIndex() {
+func WriteIndex() string {
 	fileWithInd := os.Args[2]
 	newfile, err := os.Create(fileWithInd)
+	// fileWithInd := ("C:\\Users\\asus\\source\\repos\\hello\\invertindex.txt")
+	// newfile, err := os.Create(fileWithInd)
 	if err != nil {
 		fmt.Println("Unable to create file:", err)
 		os.Exit(1)
@@ -84,7 +87,7 @@ func WriteIndex() {
 		mu.Unlock()
 	}
 	defer newfile.Close()
-	fmt.Println("\nФайл с инвертированным индексом записан")
+	return ("\nФайл с инвертированным индексом записан")
 }
 
 //coincidencesIndexes: в allIndexes []byte лежат все номера файлов в байтовом представлении
@@ -95,7 +98,7 @@ func WriteIndex() {
 //если колличество совпадений равно колличеству слов numberWords,
 // то inputstr = (inputstr + " " + string(firstnumber))
 //иначе кладем в firstnumber новое значение и начинаем цикл сначала
-func coincidencesIndexes(allIndexes []byte, countBytes int, numberWords int) string {
+func CoincidencesIndexes(allIndexes []byte, countBytes int, numberWords int) string {
 	var n, w int
 	var inputstr string
 	firstnumber := allIndexes[0]
@@ -128,8 +131,8 @@ func coincidencesIndexes(allIndexes []byte, countBytes int, numberWords int) str
 	return inputstr
 }
 
-func IndexSearch(stringFile string) {
-	var sentence, inputstr string
+func IndexSearch(stringFile string, sentence string) string {
+	var outputstr string
 	var coincidencesWords, countBytes int
 	allIndexes := make([]byte, 100)
 	index := make([]byte, 100)
@@ -144,14 +147,6 @@ func IndexSearch(stringFile string) {
 		return !unicode.IsNumber(c)
 	}
 	indexFileNumbers := strings.FieldsFunc(stringFile, isNumber)
-
-	fmt.Println("\nВведите сочетание слов для поиска: ")
-	in := bufio.NewReader(os.Stdin)
-
-	sentence, err := in.ReadString('\n')
-	if err != nil {
-		fmt.Println("Ошибка ввода: ", err)
-	}
 
 	lowSenttext := strings.ToLower(sentence)
 	searchWords := strings.FieldsFunc(lowSenttext, isLetter)
@@ -170,14 +165,14 @@ func IndexSearch(stringFile string) {
 	}
 
 	if coincidencesWords < len(searchWords) {
-		inputstr = ("Введенные слова не встречаются вместе")
+		outputstr = ("Введенные слова не встречаются вместе")
 	} else {
-		inputstr = coincidencesIndexes(allIndexes, countBytes, len(searchWords))
-		if inputstr != "" {
-			inputstr = ("Введенные слова были найдены в текстах:" + inputstr + "\n")
+		outputstr = CoincidencesIndexes(allIndexes, countBytes, len(searchWords))
+		if outputstr != "" {
+			outputstr = ("Введенные слова были найдены в текстах:" + outputstr + "\n")
 		} else {
-			inputstr = ("Введенные слова не встречаются вместе")
+			outputstr = ("Введенные слова не встречаются вместе")
 		}
 	}
-	fmt.Println(inputstr)
+	return outputstr
 }

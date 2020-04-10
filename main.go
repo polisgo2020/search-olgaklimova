@@ -35,7 +35,6 @@ func openfile(filename string, nfile int, wg *sync.WaitGroup) {
 }
 
 func main() {
-	//Нахождение папки с файлами
 	papka := os.Args[1]
 	wg := &sync.WaitGroup{}
 
@@ -67,6 +66,5 @@ func main() {
 
 	wg.Wait()
 
-	index.WriteIndex()
-	//index.IndexSearch()
+	fmt.Println(index.WriteIndex())
 }
